@@ -1,0 +1,49 @@
+// Copyright 2017 Cohesity Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Author: Zheng Cai (zheng@cohesity.com)
+//
+// This file defines the common error codes.
+
+package cohesity.apache_util;
+
+message ErrorProto {
+  enum Type {
+    kNoError = 0;
+    kTransportError = 1;
+    kTimeout = 2;
+    kRetry = 3;
+    kCancelled = 4;
+    kNonExistent = 5;
+    kNotDirectory = 6;
+    kNameTooLong = 7;
+    kPermissionDenied = 8;
+    kInvalid = 9;
+    kNotSupported = 10;
+    kBufferTooSmall = 11;
+    kSizeExceededSystemLimit = 12;
+    kAttrNonExistent = 13;
+    kAlreadyExists = 14;
+    kCannotDelete = 15;
+    kPathNotCovered = 16;
+    // The following is only used to maintain a count of the number of errors.
+    kErrorCount = 17;
+  }
+
+  // Error.
+  optional Type type = 1 [default = kNoError];
+
+  // A string describing the errors encountered.
+  optional string error_detail = 2;
+}

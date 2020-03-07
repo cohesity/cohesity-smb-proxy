@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+
+import json
+import sys
+
+__author__ = 'ssalian@cohesity.com'
+
+
+def generate(files):
+    commands = list()
+    commands.append({'COMMAND': 'Lean-Build'})
+    return commands
+
+
+if __name__ == '__main__':
+    print(json.dumps(generate(sys.argv[1:])))

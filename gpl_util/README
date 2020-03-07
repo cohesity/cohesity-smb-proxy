@@ -1,0 +1,9 @@
+This directory contains all our code that needs to link to some GPL open source
+libraries. We keep this separate from other directories to contain the GPL
+usage. All C/C++ source files in this directory should be under GPL license.
+
+Currently we have one concrete example, which is our SMB proxy, that links and
+uses the SAMBA library to fetch extended SMB ACLs from an SMB v2 or v3 server.
+This proxy uses gRPC as the communication method.
+
+Please do not include files or link to libraries in this directory from outside.

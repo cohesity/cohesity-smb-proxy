@@ -1,0 +1,649 @@
+// Copyright 2017 Cohesity Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Author: Zheng Cai
+//
+// This file contains the SMB proxy gRPC related proto definitions.
+
+import "apache_util/base/error.proto";
+
+package cohesity.apache_util.smb;
+
+//-----------------------------------------------------------------------------
+
+// The arg to get the basic status information about the SMB proxy.
+message SmbProxyGetStatusInfoArg {
+}
+
+// The result of getting the basic status information about the SMB proxy.
+message SmbProxyGetStatusInfoResult {
+  // Error happens in this RPC call.
+  optional ErrorProto error = 1;
+}
+
+//-----------------------------------------------------------------------------
+
+// This message has the basic information for talking to an SMB proxy.
+message SmbProxyBaseArg {
+  // A unique key representing the task that is sending the request.
+  optional string task_key = 1;
+
+  // The SMB server's IP address or host name.
+  optional string server = 2;
+
+  // The SMB share's path. It should have a leading /.
+  optional string share = 3;
+
+  // The username to use to login to the share.
+  optional string username = 4;
+
+  // The password to use to login to the share.
+  optional string password = 5;
+
+  // The domain name to use to login to the share.
+  optional string domain_name = 6;
+
+  // The path of the root directory. If unspecified, this means the root of
+  // this SMB share.
+  optional bytes root_dir = 7;
+
+  // Whether the RPC call should continue as much as possible on error(s).
+  optional bool continue_on_error = 8;
+
+  // The set of entities for which we should not try to fetch metadata.
+  repeated bytes skip_metadata_vec = 9;
+
+  // Whether root_dir should be populated.
+  optional bool populate_root_dir = 10;
+}
+
+//-----------------------------------------------------------------------------
+
+// A minimal, general-purpose RPC result.
+message SmbProxyResult {
+  // Error happens in this RPC call.
+  optional ErrorProto error = 1;
+}
+
+//-----------------------------------------------------------------------------
+
+// EntityMetadata defines the metadata we keep for each file or directory
+// entry.
+message EntityMetadata {
+  // The root directory that contains the path to the entity.
+  // This is only populated if the directory walker is traversing multiple root
+  // directories or populate_root_dir is set to true.
+  optional bytes root_dir = 14;
+
+  // Path to the entity. It is relative to the root directory walker.
+  // The value is well-formed, defined as below:
+  //
+  //  - If this is the root directory itself, the value is empty.
+  //
+  //  - Otherwise, the value is in the form of "/name1/name2/.../nameN". There
+  //    is no trailing slash. Note that name could not contain '/', but could
+  //    contain spaces before, in or after the name.
+  //
+  //  - There is no special directory '.' and '..' in the path.
+  optional bytes path = 1;
+
+  // Type of the entity.
+  enum EntityType {
+    kFile = 1;
+    kDirectory = 2;
+    kSymLink = 3;
+  }
+  optional EntityType type = 2;
+
+  // The SMB attributes.
+  optional uint32 attributes = 3;
+
+  // User id of the entity.
+  optional uint32 uid = 4;
+
+  // Group id of the entity.
+  optional uint32 gid = 5;
+
+  // Change time in usecs.
+  optional int64 change_time_usecs = 6;
+
+  // Last modification time in usecs.
+  optional int64 modify_time_usecs = 7;
+
+  // The SMB creation time in usecs.
+  optional int64 create_time_usecs = 8;
+
+  // The SMB access time in usecs.
+  optional int64 access_time_usecs = 16;
+
+  // Logical size in bytes. Only set for files.
+  optional int64 size = 9;
+
+  // Physical size on disk in bytes. Only set for files.
+  optional int64 allocation_size = 17;
+
+  // Inode id.
+  optional int64 inode_id = 10;
+
+  // Number of hardlinks pointing to the inode.
+  optional uint32 num_hardlinks = 11 [default = 1];
+
+  // The first known path (in pre-order) that points to the hardlink target.
+  // Only set if this is not the first known path to the inode. If only one
+  // root directory is being traversed, this will contain the path relative to
+  // that root directory, else this will contain the absolute path.
+  optional bytes first_path_to_hardlink = 15;
+
+  // Path to the symlink target.
+  optional bytes symlink_target = 18;
+
+  // Symlink flags (type).
+  optional uint32 symlink_flags = 19;
+
+  // The extended attributes.
+  //
+  // Extended attributes are name:value pairs associated permanently with files
+  // and directories, similar to the environment strings associated with a
+  // process. An attribute may be defined or undefined. If it is defined, its
+  // value may be empty or non-empty. Refer to the linux man page for xattr for
+  // more details.
+  message ExtendedAttribute {
+    optional string name = 1;
+    optional bytes value = 2;
+  }
+  repeated ExtendedAttribute extended_attributes = 12;
+
+  // This will contain any error encountered while fetching the metadata for
+  // the entity.
+  optional ErrorProto error = 13;
+}
+
+//-----------------------------------------------------------------------------
+
+// The arg to get the metadata of the root directory node. This arg can also be
+// used to get the metadata of a non-root path.
+message SmbProxyGetRootMetadataArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+
+  // If this is set, then get the metadata of the path.
+  optional bytes path = 2;
+}
+
+// The result containing the metadata of the root directory node.
+message SmbProxyGetRootMetadataResult {
+  // Set when this RPC results in an error.
+  optional ErrorProto error = 1;
+
+  // The metadata of the root directory. If there is any error in creating the
+  // metadata for the root, then the error field of this metadata will be
+  // populated.
+  optional EntityMetadata metadata = 2;
+}
+
+//-----------------------------------------------------------------------------
+
+// The arg to fetch the metadata of a directory's children.
+message SmbProxyFetchChildrenMetadataArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+
+  // The path (from the root dir) of the directory whose children we need to
+  // fetch.
+  optional bytes path = 2;
+
+  // The cookie to get the remaining children. The initial call should not set
+  // this.
+  optional bytes cookie = 3;
+
+  // In case of symlink, fetch its target path.
+  optional bool fetch_symlink_target = 4;
+
+  // Whether to fetch access control lists.
+  optional bool fetch_acls = 5 [default = true];
+}
+
+// The result containing the metadata of an entity's children.
+message SmbProxyFetchChildrenMetadataResult {
+  // Set when this RPC results in an error.
+  optional ErrorProto error = 1;
+
+  // Set when any error is seen in getting the children of the parent
+  // directory, so that this error can be populated in the caller's metadata
+  // for this parent directory.
+  optional ErrorProto parent_dir_error = 2;
+
+  // The metadata of the children.
+  repeated EntityMetadata children_metadata = 3;
+
+  // If set, then it means there are more remaining children to be fetched,
+  // and this cookie should be used in the next call to
+  // SmbProxyFetchChildrenMetadata.
+  optional bytes cookie = 4;
+}
+
+//-----------------------------------------------------------------------------
+
+// The cookie used in SmbProxyFetchChildrenMetadata RPCs. The client should not
+// try to use and decode this.
+message SmbProxyConnectionCookie {
+  // The time in usecs when this connection was created.
+  optional int64 creation_time_usecs = 1 [default = -1];
+
+  // How many children have been fetched for the directory so far.
+  optional int64 children_fetched = 2 [default = 0];
+}
+
+//-----------------------------------------------------------------------------
+
+// The arg to fetch data for a file.
+message SmbProxyFetchFileDataArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+
+  // The absolute path to the file.
+  optional bytes file_path = 2;
+
+  // The offset in the file starting at which we should fetch data.
+  optional int64 offset = 3;
+
+  // The amount of bytes (starting from offset) to fetch. This should be
+  // greater than zero, otherwise a kInvalid error will be returned.
+  optional int64 size = 4;
+
+  // Whether to cache the file handle once we open it for reading.
+  // If this is set to true, a call to purge all cached files handles should be
+  // made at the end of the task (via the PurgeFileHandles RPC).
+  optional bool cache_handle = 5;
+}
+
+// The result containing the data for a file.
+message SmbProxyFetchFileDataResult {
+  // Set when this RPC results in an error.
+  optional ErrorProto error = 1;
+
+  // The bytes corresponding to the read.
+  optional bytes data = 2;
+}
+
+//-----------------------------------------------------------------------------
+
+// The arg to write data to a file.
+message SmbProxyWriteFileDataArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+
+  // The absolute path to the file.
+  optional bytes file_path = 2;
+
+  // The offset in the file starting at which we should write data.
+  optional int64 offset = 3;
+
+  // The amount of bytes (starting from offset) to write. This should be
+  // greater than zero, otherwise a kInvalid error will be returned.
+  optional int64 size = 4;
+
+  // Whether to cache the file handle once we open it for writing.
+  // If this is set to true, caller to purge all cached files handles should be
+  // made at the end of the task (via the PurgeFileHandles RPC).
+  optional bool cache_handle = 5;
+
+  // The bytes corresponding to the write.
+  optional bytes data = 6;
+
+  // Set to true if data to be written belongs to a stubbed file.
+  optional bool is_stubbed = 7 [default = false];
+}
+
+// The result message after writing to a file.
+message SmbProxyWriteFileDataResult {
+  // Set when this RPC results in an error.
+  optional ErrorProto error = 1;
+}
+
+//-----------------------------------------------------------------------------
+
+// The arg to purge open connections and cached files handles for a task.
+message SmbProxyPurgeTaskArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 2;
+
+  // A unique key representing the task that is sending the request.
+  optional string task_key = 1;
+}
+
+// The result message after purging a task.
+message SmbProxyPurgeTaskResult {
+  // Set when this RPC results in an error.
+  optional ErrorProto error = 1;
+}
+
+//-----------------------------------------------------------------------------
+
+// Type of entity.
+enum EntityType {
+    kFile = 1;
+    kDirectory = 2;
+    kSymLink = 3;
+}
+
+//-----------------------------------------------------------------------------
+
+// The arg to create an entity.
+message SmbProxyCreateEntityArg {
+
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+
+  // Type of entity.
+  optional EntityType type = 2;
+
+  // The absolute path to an entity.
+  optional bytes path =  3;
+}
+
+// The result message after creating an entity.
+message SmbProxyCreateEntityResult {
+  // Set when this RPC results in an error.
+  optional ErrorProto error = 1;
+}
+
+//-----------------------------------------------------------------------------
+
+// The arg to delete an entity.
+message SmbProxyDeleteEntityArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+
+  // Type of entity.
+  optional EntityType type = 2;
+
+  // The absolute path to an entity.
+  optional bytes path =  3;
+
+  // Exclusive access to a file.
+  optional bool exclusive_access = 4;
+}
+
+// The result message after deleting an entity.
+message SmbProxyDeleteEntityResult {
+  // Set when this RPC results in an error.
+  optional ErrorProto error = 1;
+}
+
+//-----------------------------------------------------------------------------
+
+// Arg message to create files which need to be restored.
+message SmbProxyCreateRestoreFilesArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+
+  // This field is populated if user wants to restore the files to alternate
+  // location.
+  optional bytes alternate_location_path = 2;
+
+  message Entity {
+    // Metadata of existing entity. This will be present if there is an entity
+    // with same name in the destination.
+    optional EntityMetadata existing_entity_md = 1;
+
+    // Metadata of the entity to be restored. This field always exists.
+    optional EntityMetadata restore_entity_md = 2;
+
+    // Restore file handle for the entity to be restored. This will always be
+    // present.
+    optional RestoreFileHandle restore_file_handle = 3;
+
+    // Restore file handle for the existing entity. This will be present if
+    // entity with same name already exist on destination.
+    optional RestoreFileHandle existing_file_handle = 4;
+  }
+
+  // Vector of metadata of entities which need to be restored.
+  repeated Entity entity_metadata_vec = 3;
+
+  // When creating a directory, whether to create its parent directories if
+  // they do not exist.
+  optional bool create_parent_dirs = 4;
+
+  // When creating a tmp file, whether we should overwrite it if it already
+  // exists.
+  optional bool overwrite_existing_tmp = 5 [default = true];
+
+  // Sharding width for hardlink tmp directory where we create the temp files
+  // for hardlinks. This is used only in case of NAS volume restore.
+  optional int32 hardlink_tmp_dir_sharding_width = 6;
+
+  // Set if file is being created for uptier task.
+  optional bool nas_uptier_task = 7 [default = false];
+}
+
+// Result message after creating files for restoring.
+message SmbProxyCreateRestoreFilesResult {
+  // Error happens in this RPC call.
+  optional ErrorProto error = 1;
+
+  message EntityResult {
+    // Error occured while creating entity in destination.
+    optional ErrorProto error = 1;
+  }
+
+  // Vector of entity result for each entity sent in entity_metadata_vec.
+  repeated EntityResult entity_result_vec = 2;
+}
+
+//-----------------------------------------------------------------------------
+
+// Message to hold information about the file being restored.
+message RestoreFileHandle {
+  // Metadata of entity which need to be restored.
+  optional EntityMetadata entity_metadata = 1;
+
+  // Path to which entity will be restored.
+  optional bytes file_path = 2;
+
+  // Path of temporary file created. Data is synced to this file path. At the
+  // end of data sync phase, FinalizeRestoreFiles RPC is called by magneto
+  // slave to rename the file and restore its attributes. This path is valid
+  // for regular file entity with non-zero size and whose
+  // first_path_to_hardlink is not set. For all other entities this path is not
+  // set.
+  optional bytes tmp_file_path = 3;
+}
+
+//-----------------------------------------------------------------------------
+
+// Arg message to write multiple files data which are being restored.
+message SmbProxyWriteFilesDataArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+
+  // This field would be present if user wants to restore the file to alternate
+  // location.
+  optional bytes alternate_location_path = 2;
+
+  message Entity {
+    // Restore file handle.
+    optional RestoreFileHandle restore_file_handle = 1;
+
+    // Offset in the file where data needs to be written.
+    optional int64 offset = 2;
+
+    // Data which needs to be written.
+    optional bytes data = 3;
+  }
+
+  repeated Entity entities_vec = 3;
+}
+
+// Result message after writing files data.
+message SmbProxyWriteFilesDataResult {
+  // Error happens in this RPC call.
+  optional ErrorProto error = 1;
+
+  // Error for individual entity write request. There is a one to one
+  // correspondence between the entity_vec in arg and error_vec.
+  repeated ErrorProto error_vec = 2;
+}
+
+//-----------------------------------------------------------------------------
+
+// Arg message to finalize restored files.
+message SmbProxyFinalizeRestoreFilesArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+
+  // It would be present if user wants to restore the file to alternate
+  // location.
+  optional bytes alternate_location_path = 2;
+
+  message Entity {
+    // Whether to finalize restored File or not.
+    //
+    // If it is true:
+    // 1. If tmp file was created, then we rename the tmp file and set the file
+    // attribute.
+    // 2. If entity is directory, then we set the attributes of directory.
+    //
+    // If it is false:
+    // 1. If tmp file was created, then we delete the tmp file.
+    // 2. If entity was directory, then we set the attributes of directory.
+    optional bool should_commit = 1;
+
+    // Restore file handle.
+    optional RestoreFileHandle restore_file_handle = 2;
+  }
+
+  repeated Entity entities_vec = 3;
+
+  // Set if we are doing NAS uptier task.
+  optional bool nas_uptier_task = 4 [default = false];
+
+  // Set to the prefix to be validated in migration symlinks. Valid only if
+  // nas_uptier_task is set.
+  optional string nas_uptier_symlink_prefix = 5;
+}
+
+// Result message after finalizing restored files.
+message SmbProxyFinalizeRestoreFilesResult {
+  // Error happens in this RPC call.
+  optional ErrorProto error = 1;
+
+  // Error for individual entity finalize request. There is a one to one
+  // correspondence between the entity_vec in arg and error_vec.
+  repeated ErrorProto error_vec = 2;
+}
+
+//-----------------------------------------------------------------------------
+
+// The arg to create an SMB symlink (reparse point).
+message SmbProxyCreateSymlinkArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+
+  // The path of the link itself.
+  optional bytes path = 2;
+
+  // The path of the link target.
+  optional bytes target_path = 3;
+
+  // If set true, this RPC call will first try to delete the original entity at
+  // 'path', and the symlink will be created after the deletion is done. This
+  // is very useful in creating a stub and replace the original entity on the
+  // source SMB share.
+  optional bool delete_entity = 4;
+
+  // Type of the original entity to delete. Only applicable when
+  // 'delete_entity' is true.
+  optional EntityType entity_type = 5;
+}
+
+// The result message after creating an SMB symlink.
+message SmbProxyCreateSymlinkResult {
+  // Set when this RPC results in an error.
+  optional ErrorProto error = 1;
+}
+
+message SmbProxyRenameEntityArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+
+  // The path of the existing entity.
+  optional bytes existing_path = 2;
+
+  // The path of the rename target.
+  optional bytes target_path = 3;
+
+  // Type of entity.
+  optional EntityType entity_type = 4;
+
+  // When set to true, target will be removed if it exists.
+  optional bool replace_if_exists = 5;
+}
+
+message SmbProxyRenameEntityResult {
+  // Set when this RPC results in an error.
+  optional ErrorProto error = 1;
+}
+
+//-----------------------------------------------------------------------------
+
+// The arg to verify that the specified SMB share can be correctly accessed
+// using the provided credentials.
+message SmbProxyVerifyShareArg {
+  // The base header.
+  optional SmbProxyBaseArg header = 1;
+}
+
+// The result of the SMB share verification. Upon success, it also returns the
+// first working resolved IP address of the server which can correctly serve
+// the share. Such IP address is very useful when connecting to a DFS share,
+// like Nutanix AFS general shares.
+message SmbProxyVerifyShareResult {
+  // Set when this RPC results in an error.
+  optional ErrorProto error = 1;
+
+  // The first working resolved IP address of the server through which we can
+  // successfully connect to the share.
+  optional string first_working_ip = 2;
+
+  // The logical size of the share in number of bytes, calculated number.
+  optional int64 logical_size_bytes = 3;
+
+  // The available size of the share in number of bytes, calculated number.
+  optional int64 available_size_bytes = 4;
+
+  // The following fileds are numbers directory from SMB
+  // FileFsFullSizeInformation. More detauls can be found at:
+  // https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/
+  // 63768db7-9012-4209-8cca-00781e7322f5
+
+  // The total number of allocation units for this share.
+  optional int64 total_allocation_units = 5;
+
+  // The total number of free allocation units on the volume that are available
+  // to the user associated with the calling thread.
+  optional int64 caller_available_allocation_units = 6;
+
+  // The total number of free allocation units on the volume.
+  optional int64 actual_available_allocation_units = 7;
+
+  // The number of sectors in each allocation unit.
+  optional uint32 sectors_per_allocation_unit = 8;
+
+  // The number of bytes in each sector..
+  optional uint32 bytes_per_sector = 9;
+}
+
+//-----------------------------------------------------------------------------

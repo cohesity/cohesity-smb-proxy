@@ -1,0 +1,90 @@
+// Copyright 2017 Cohesity Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Author: Zheng Cai
+//
+// This file defines the gRPC RPC calls we use to communicate with the
+// SMB proxy.
+
+import "apache_util/smb/smb_proxy_param.proto";
+import "open_util/net/protorpc.proto";
+
+package cohesity.apache_util.smb;
+
+//-----------------------------------------------------------------------------
+
+service SmbProxyRpcService {
+  // Set a higher timeout, since it can take a while to fetch metadata for
+  // directories with a lot of children.
+  option (cohesity.net.default_timeout_msecs) = 600000;
+
+  // Gets the basic status info about the SMB proxy.
+  rpc SmbProxyGetStatusInfo(SmbProxyGetStatusInfoArg)
+    returns (SmbProxyGetStatusInfoResult) {}
+
+  // Gets the metadata of the root directory node of an SMB share.
+  rpc SmbProxyGetRootMetadata(SmbProxyGetRootMetadataArg)
+    returns (SmbProxyGetRootMetadataResult) {}
+
+  // Gets the metadata of some children of a directory.
+  rpc SmbProxyFetchChildrenMetadata(SmbProxyFetchChildrenMetadataArg)
+    returns (SmbProxyFetchChildrenMetadataResult) {}
+
+  // Fetches the data of the file in an SMB share.
+  rpc SmbProxyFetchFileData(SmbProxyFetchFileDataArg)
+    returns (SmbProxyFetchFileDataResult) {}
+
+  // Purges open connections and cached files handles for a task.
+  rpc SmbProxyPurgeTask(SmbProxyPurgeTaskArg)
+    returns (SmbProxyPurgeTaskResult) {}
+
+  // Writes data to the file.
+  rpc SmbProxyWriteFileData(SmbProxyWriteFileDataArg)
+    returns (SmbProxyWriteFileDataResult) {}
+
+  // Creates an entity.
+  rpc SmbProxyCreateEntity(SmbProxyCreateEntityArg)
+    returns (SmbProxyCreateEntityResult) {}
+
+  // Deletes an entity.
+  rpc SmbProxyDeleteEntity(SmbProxyDeleteEntityArg)
+    returns (SmbProxyDeleteEntityResult) {}
+
+  // Creates files to be restored.
+  rpc SmbProxyCreateRestoreFiles(SmbProxyCreateRestoreFilesArg)
+    returns (SmbProxyCreateRestoreFilesResult) {}
+
+  // Writes data to a set of files which are being restored.
+  rpc SmbProxyWriteFilesData(SmbProxyWriteFilesDataArg)
+    returns (SmbProxyWriteFilesDataResult) {}
+
+  // Finalizes restored files/directories.
+  rpc SmbProxyFinalizeRestoreFiles(SmbProxyFinalizeRestoreFilesArg)
+      returns (SmbProxyFinalizeRestoreFilesResult) {}
+
+  // Creates a symlink (reparse point) in an SMB share.
+  rpc SmbProxyCreateSymlink(SmbProxyCreateSymlinkArg)
+      returns (SmbProxyCreateSymlinkResult) {}
+
+  // Renames and entity in an SMB share.
+  rpc SmbProxyRenameEntity(SmbProxyRenameEntityArg)
+      returns (SmbProxyRenameEntityResult) {}
+
+  // Verifies that the specified SMB share can be correctly accessed using the
+  // provided credentials.
+  rpc SmbProxyVerifyShare(SmbProxyVerifyShareArg)
+      returns (SmbProxyVerifyShareResult) {}
+}
+
+//-----------------------------------------------------------------------------
