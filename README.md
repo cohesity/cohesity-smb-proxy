@@ -1,2 +1,2 @@
 # cohesity-smb-proxy
-Repo to share smb related work done by Cohesity
+Repo to share smb-proxy work done by Cohesity

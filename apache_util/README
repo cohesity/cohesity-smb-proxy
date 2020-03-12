@@ -1,6 +1,0 @@
-This directory contains all our code that needs to be open-sourced together
-with our gpl_util/ package. All source files in this directory should be under
-Apache v2 license. Although both this package and the open_util/ package are
-under Apache license, right now we are not open-sourcing (and we don't need to)
-the open_util/ pacakge. This package is different in the sense that it has to
-be open-sourced together with the gpl_util/ package when appropriate.
